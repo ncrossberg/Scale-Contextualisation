@@ -1,0 +1,361 @@
+---
+title: "Medical Dataset"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(ggpubr)
+library(dplyr)
+library(emmeans)
+library(interactions)
+library(lmtest)
+library(car)
+library(performance)
+library(datawizard)
+library(lmerTest)
+library(lme4)
+library(ggeffects)
+```
+
+```{r}
+df <- read.csv('Contextualisation_Scores_R.csv')
+df <- df[which(df$Dataset =='1'),]
+
+df <- df %>%
+  mutate(
+    Score = case_when(
+      Factor == "F1" & Type == "N" ~ Score / 5,
+      Factor == "F1" & Type == "C" ~ Score / 6,
+      Factor == "F2" ~ Score / 3,
+      TRUE ~ Score
+    )
+  )
+
+unique(df["Participant"])
+
+```
+
+```{r}
+#Let's preprocess our relevant features
+df$Factor <- as.factor(df$Factor)
+df$Participant <- as.factor(df$Participant)
+df$Dataset <- as.factor(df$Dataset)
+df$Type <- as.factor(df$Type)
+df$CERF <- factor(df$CERF, 
+                          levels = c('A1', 'A2', 'B1', 'B2', 'C1', 'C2'), 
+                          ordered = TRUE)
+df$Feature <- as.factor(df$Feature)
+df$Word.Frequency.stand <- standardize(df$Word.Frequency)
+df$AoA.stand <- standardize(df$AoA)
+df$Word.Length.stand <- standardize(df$Word.Length)
+df$Polysemy.stand <- standardize(df$Polysemy)
+df$Understandability.Score.log <- df$Score
+
+```
+
+```{r}
+#Really simple model
+model <- lmer(Understandability.Score.log ~ Factor + Word.Frequency.stand + Factor*Word.Frequency.stand + (1 + Factor | Participant) + (1 | Feature), data = df)
+summary(model)
+
+check_heteroscedasticity(model)  # Checks for equal variance
+check_normality(model)           # Checks if residuals are normal
+check_collinearity(model)
+
+#Check q-q plot to see if non-normality is actually a problem
+qqnorm(residuals(model), main = "Q-Q Plot of Residuals", pch = 16, col = "darkgray")
+# Add the reference line
+qqline(residuals(model), col = "red", lwd = 2)
+
+# Make sure the interactions package is loaded
+library(interactions)
+
+# 1. Test the significance of the slopes for each level of Factor
+sim_slopes(model, 
+           pred = Word.Frequency.stand, 
+           modx = Factor, 
+           johnson_neyman = FALSE)
+
+# 2. Plot the interaction lines
+my_interaction_plot <- interact_plot(model, 
+              pred = Word.Frequency.stand, 
+              modx = Factor, 
+              plot.points = TRUE,
+              x.label = "Word Frequency (z-scores)",
+              y.label = "Understandability") +
+  scale_color_manual(values = c("F1" = "blue", "F2" = "red")) +
+  scale_fill_manual(values = c("F1" = "blue", "F2" = "red"))
+
+ggsave(filename = "Word Frequency.png", 
+       plot = my_interaction_plot, 
+       dpi = 300, 
+       width = 7, 
+       height = 5, 
+       units = "in")
+
+interact_plot(model, 
+              pred = Word.Frequency.stand, 
+              modx = Factor, 
+              plot.points = TRUE,
+              x.label = "Word Frequency",
+              y.label = "Understandability") +
+  scale_color_manual(values = c("F1" = "blue", "F2" = "red")) +
+  scale_fill_manual(values = c("F1" = "blue", "F2" = "red"))
+```
+
+```{r}
+#Check AoA next
+#Really simple model
+model <- lmer(Understandability.Score.log ~ Factor + AoA.stand + Factor*AoA.stand + (1 + Factor | Participant) + (1 | Feature), data = df)
+summary(model)
+
+check_heteroscedasticity(model)  # Checks for equal variance
+check_normality(model)           # Checks if residuals are normal
+check_collinearity(model)
+
+#Check q-q plot to see if non-normality is actually a problem
+qqnorm(residuals(model), main = "Q-Q Plot of Residuals", pch = 16, col = "darkgray")
+# Add the reference line
+qqline(residuals(model), col = "red", lwd = 2)
+
+# Make sure the interactions package is loaded
+library(interactions)
+
+# 1. Test the significance of the slopes for each level of Factor
+sim_slopes(model,
+           pred = AoA.stand,
+           modx = Factor,
+           johnson_neyman = FALSE)
+
+# 2. Plot the interaction lines
+my_interaction_plot <- interact_plot(model,
+              pred = AoA.stand,
+              modx = Factor,
+              plot.points = TRUE,
+              x.label = "Age of Acquisition (z-scores)",
+              y.label = "Understandability")+
+  scale_color_manual(values = c("F1" = "blue", "F2" = "red")) +
+  scale_fill_manual(values = c("F1" = "blue", "F2" = "red"))
+
+ggsave(filename = "Age of Acquisition.png",
+       plot = my_interaction_plot,
+       dpi = 300,
+       width = 7,
+       height = 5,
+       units = "in")
+
+interact_plot(model, 
+              pred = AoA.stand, 
+              modx = Factor, 
+              plot.points = TRUE,
+              x.label = "Age of Acquisition (z-scores)",
+              y.label = "Understandability")
+```
+
+```{r}
+#Check Word Length next
+#Really simple model
+model <- lmer(Understandability.Score.log ~ Factor + Word.Length.stand + Factor*Word.Length.stand + (1 + Factor | Participant) + (1 | Feature), data = df)
+summary(model)
+
+check_heteroscedasticity(model)  # Checks for equal variance
+check_normality(model)           # Checks if residuals are normal
+check_collinearity(model)
+
+#Check q-q plot to see if non-normality is actually a problem
+qqnorm(residuals(model), main = "Q-Q Plot of Residuals", pch = 16, col = "darkgray")
+# Add the reference line
+qqline(residuals(model), col = "red", lwd = 2)
+
+# Make sure the interactions package is loaded
+library(interactions)
+
+# 1. Test the significance of the slopes for each level of Factor
+sim_slopes(model,
+           pred = Word.Length.stand,
+           modx = Factor,
+           johnson_neyman = FALSE)
+
+# 2. Plot the interaction lines
+interact_plot(model,
+              pred = Word.Length.stand,
+              modx = Factor,
+              plot.points = TRUE)
+
+# 2. Plot the interaction lines
+my_interaction_plot <- interact_plot(model,
+              pred = Word.Length.stand,
+              modx = Factor,
+              plot.points = TRUE,
+              x.label = "Word Length (z-scores)",
+              y.label = "Understandability")+
+  scale_color_manual(values = c("F1" = "blue", "F2" = "red")) +
+  scale_fill_manual(values = c("F1" = "blue", "F2" = "red"))
+
+ggsave(filename = "Word Length.png",
+       plot = my_interaction_plot,
+       dpi = 300,
+       width = 7,
+       height = 5,
+       units = "in")
+```
+
+```{r}
+#Check Polysemy next
+#Really simple model
+model <- lmer(Understandability.Score.log ~ Factor + Polysemy.stand + Factor*Polysemy.stand + (1 + Factor | Participant) + (1 | Feature), data = df)
+
+#Okay Interaction isn't significant
+summary(model)
+
+
+check_heteroscedasticity(model)  # Checks for equal variance
+check_normality(model)           # Checks if residuals are normal
+check_collinearity(model)
+
+#Check q-q plot to see if non-normality is actually a problem
+qqnorm(residuals(model), main = "Q-Q Plot of Residuals", pch = 16, col = "darkgray")
+# Add the reference line
+qqline(residuals(model), col = "red", lwd = 2)
+
+# Make sure the interactions package is loaded
+library(interactions)
+
+# 1. Test the significance of the slopes for each level of Factor
+sim_slopes(model,
+           pred = Polysemy.stand,
+           modx = Factor,
+           johnson_neyman = FALSE)
+
+# 2. Plot the interaction lines with custom axis labels
+my_interaction_plot <- interact_plot(model,
+              pred = Polysemy.stand,
+              modx = Factor,
+              plot.points = TRUE,
+              x.label = "Polysemy (z-scores)",
+              y.label = "Understandability") +
+  scale_color_manual(values = c("F1" = "blue", "F2" = "red")) +
+  scale_fill_manual(values = c("F1" = "blue", "F2" = "red"))
+
+ggsave(filename = "Polysemy.png", 
+       plot = my_interaction_plot, 
+       dpi = 300, 
+       width = 7, 
+       height = 5, 
+       units = "in")
+```
+
+```{r}
+#Check Word Length next
+#Really simple model
+
+#Okay Interaction isn't significant
+model <- lmer(Understandability.Score.log ~ Factor + CERF + Factor*CERF + (1 + Factor | Participant) + (1 | Feature), data = df)
+summary(model)
+
+#High VIF so let's just drop CERF for now - we can come back to it!
+
+check_heteroscedasticity(model)  # Checks for equal variance
+check_normality(model)           # Checks if residuals are normal
+# 2. Fit a linear model with the exact same fixed effects structure
+# 2. Fit a linear model with the exact same fixed effects structure
+temp_lm <- lmer(Understandability.Score.log ~ Factor + CERF + Factor*CERF + (1 + Factor | Participant) + (1 | Feature),, data = df)
+
+# 3. Calculate the generalized VIF
+library(car)
+vif(temp_lm)
+
+#Check q-q plot to see if non-normality is actually a problem
+qqnorm(residuals(model), main = "Q-Q Plot of Residuals", pch = 16, col = "darkgray")
+# Add the reference line
+qqline(residuals(model), col = "red", lwd = 2)
+
+# 1. Estimate predictions for the combination of CERF and your Moderator
+# Note: Place the primary variable (CERF) first in the vector
+predictions <- predict_response(model, terms = c("CERF", "Factor"))
+
+plot(predictions) +
+  labs(
+    x = "CERF Ordered Levels",
+    y = "Understandability Cost (log)",
+    color = "Factor",
+    fill = "Factor" # Keeps the confidence interval shading consistent
+  ) +
+  # Assign blue to F1 and red to F2
+  scale_color_manual(values = c("F1" = "blue", "F2" = "red")) +
+  scale_fill_manual(values = c("F1" = "blue", "F2" = "red")) +
+  # Custom y-axis limits (zoom from 1 to 3.5)
+  coord_cartesian(ylim = c(0, 5)) +
+  theme_minimal()
+# 
+
+library(interactions)
+library(ggplot2)
+
+# Generate the categorical interaction plot in the interact_plot style
+ip <- plot(predictions) +
+  labs(
+    x = "CERF Ordered Levels",
+    y = "Understandability",
+    color = "Factor",
+    fill = "Factor" # Keeps the confidence interval shading consistent
+  ) +
+  # Assign blue to F1 and red to F2
+  scale_color_manual(values = c("F1" = "blue", "F2" = "red")) +
+  scale_fill_manual(values = c("F1" = "blue", "F2" = "red")) +
+  # Custom y-axis limits (zoom from 1 to 3.5)
+  coord_cartesian(ylim = c(0, 5)) +
+  theme_minimal()
+
+ggsave(filename = "CEFR_Med.png",
+       plot = ip,
+       dpi = 300,
+       width = 7,
+       height = 5,
+       units = "in")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+# #Keeping this code snippet here for future fancy transformation stuff
+# library(interactions)
+# library(ggplot2)
+# 
+# # 1. Generate the base plot lines
+# p <- interact_plot(model, 
+#                    pred = Word.Frequency_stand, 
+#                    modx = Factor, 
+#                    plot.points = FALSE)
+# 
+# # 2. Add the original raw data points safely and transform the axis
+# p + 
+#   # inherit.aes = FALSE isolates this layer so it won't look for 'modx_group'
+#   geom_point(data = df, 
+#              aes(x = Word.Frequency, y = Understandability.Score.trans, color = Factor), 
+#              alpha = 0.4, 
+#              position = position_jitter(width = 0.1, height = 0),
+#              inherit.aes = FALSE) +
+#   
+#   # Visually back-transform the Y-axis space to the original 3-30 scale
+#   scale_y_continuous(trans = "log", 
+#                      breaks = c(3, 5, 10, 15, 20, 25, 30)) +
+#   
+#   labs(y = "Understandability Score (Original 3-30 Scale)")
+```
+
+
